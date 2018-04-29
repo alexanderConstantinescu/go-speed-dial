@@ -4,9 +4,20 @@ A GO project replicating and building upon the CLI tool made in the repository [
 
 ## Installation 
 
+### UNIX - based system
+
 ```
-curl https://raw.githubusercontent.com/alexanderConstantinescu/go-speed-dial/master/go_get_speed_dial.sh | bash
+curl https://raw.githubusercontent.com/alexanderConstantinescu/go-speed-dial/master/install.sh >> tmp.sh && chmod +x tmp.sh && sudo ./tmp.sh && rm tmp.sh
 ```
+
+### Windows - with UNIX terminal emulator 
+
+**Run as administrator**
+```
+curl https://raw.githubusercontent.com/alexanderConstantinescu/go-speed-dial/master/install.sh >> tmp.sh && chmod +x tmp.sh && ./tmp.sh && rm tmp.sh
+```
+
+**Attention**: syscall.Exec seems to have an issue on windows, this is currently under investigation
 
 ## Usage:
 
@@ -61,6 +72,15 @@ speed-dial list
 ```
 
 will list all your saved commands
+
+### Export 
+
+
+```
+speed-dial export -ip ${IP} -id ${IDENTITY_FILE} - user ${USER}
+```
+
+Export allows you to export the .dial_keys file to any remote server. This is useful in case you already have the binary installed on a remote machine and want to export your preferences. 
 
 ### Execute
 

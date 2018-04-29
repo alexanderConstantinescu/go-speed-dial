@@ -1,0 +1,78 @@
+#!/bin/bash
+set -e
+
+ARCH_UNAME=`uname -m`
+if [[ "$ARCH_UNAME" == "x86_64" ]]; then
+	ARCH="amd64"
+else
+	ARCH="386"
+fi
+
+EXT="tar.gz"
+
+if [[ "$OSTYPE" == "linux-gnu" ]]; then
+	OS="linux"
+	UNCOMPRESSED_FILENAME="sd"
+elif [[ "$OSTYPE" == "win32" ]] || [[ "$OSTYPE" == "cygwin" ]] || [[ "$OSTYPE" == "msys" ]] ; then
+	OS="windows"
+	EXT="zip"
+	UNCOMPRESSED_FILENAME="sd.exe"
+else
+	echo "No binary available for your OS '$OSTYPE'."
+	exit
+fi
+
+FILENAME=$OS-$ARCH.$EXT
+
+DOWNLOAD_URL="https://github.com/alexanderConstantinescu/go-speed-dial/releases/download/0.1/$FILENAME"
+
+echo "Downloading speed dial from $DOWNLOAD_URL"
+
+if ! curl --fail -o $FILENAME -L $DOWNLOAD_URL; then
+    exit
+fi
+
+echo ""
+echo "extracting $FILENAME to ./${UNCOMPRESSED_FILENAME}"
+
+if [[ "$OS" == "windows" ]]; then
+	echo 'y' | unzip $FILENAME 2>&1 > /dev/null
+else
+	tar -xzf $FILENAME
+fi
+
+echo "removing $FILENAME"
+rm $FILENAME
+chmod +x ./${UNCOMPRESSED_FILENAME}
+
+move_file () {
+	echo Moving file to PATH at $1
+	sleep 2 
+	mv ${UNCOMPRESSED_FILENAME} $1
+	sleep 1
+}
+
+move_file_with_privilage () {
+	IFS=':' read -ra ADDR <<< "$PATH"
+	for i in "${ADDR[@]}"; do
+		if [[ -d "/usr/local/bin" && $i == "/usr/local/bin" ]]; then
+			move_file $i
+			break
+		elif [[ -d "/usr/bin" && $i == "/usr/bin" ]]; then
+			move_file $i
+			break
+		fi
+	done
+}
+
+if [[ $OS == "linux" ]] && [[ "$EUID" -eq 0 ]]; then
+	move_file_with_privilage
+elif [[ $OS == "windows" ]] && net session &> /dev/null; then
+		move_file_with_privilage
+fi
+
+echo ""
+echo "Speed-dial successfully installed to ./sd in your PATH"
+echo "Think about renaming the alias in case you think that I gave it an ugly name: 'echo \"alias WHATEVER_YOU_LIKE=sd\" >> ~/.bashrc'"
+echo "In case you rename: please restart the bash session for the change to take effect, either by typing 'bash' after this script exists, or by re-logging in."
+exit 0

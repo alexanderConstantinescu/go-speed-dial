@@ -324,7 +324,7 @@ func main() {
 			fmt.Printf("Saved key %s as value: %s\n", *saveKeyPtr, *saveValPtr)
 			os.Exit(0)
 		}
-		fmt.Printf("Cannot execute command: %s, unknown key %s\n", save, *saveKeyPtr)
+		fmt.Printf("Cannot execute command %s, key: %s exists. Use update instead.\n", save, *saveKeyPtr)
 		os.Exit(1)
 	}
 
