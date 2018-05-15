@@ -4,11 +4,13 @@ A GO project replicating and building upon the CLI tool made in the repository [
 
 ## Installation 
 
-### UNIX - based system
+### Linux - based system
 
 ```
 curl https://raw.githubusercontent.com/alexanderConstantinescu/go-speed-dial/master/install.sh >> tmp.sh && chmod +x tmp.sh && sudo ./tmp.sh && rm tmp.sh
 ```
+
+The linux installation also does a setup of bash completion for speed dial during the install. The script needs to be executed as root.   
 
 ### Windows - with UNIX terminal emulator 
 
@@ -48,6 +50,8 @@ ssh user@ip
 ```
 
 thus giving you the possibility to associate any username at execution.
+
+**Attention:** the keyword "keys" is reserved and should not be used when saving commands. 
 
 ### Update
 

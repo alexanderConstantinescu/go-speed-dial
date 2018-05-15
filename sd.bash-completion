@@ -1,0 +1,120 @@
+#!/bin/bash
+#
+# sd Bash Completion
+# =======================
+#
+# The script is inspired by the BZR/Bazaar bash completion script
+# available at https://launchpad.net/bzr-bash-completion
+#
+# Installation
+# ------------
+#
+# 1. Place it in a `bash-completion.d` folder:
+#
+#   * /etc/bash-completion.d
+#   * /usr/local/etc/bash-completion.d
+#   * ~/bash-completion.d
+#
+# 2. Open new bash, and type `sd [TAB][TAB]`
+#
+# Documentation
+# -------------
+# The script is called by bash whenever [TAB] or [TAB][TAB] is pressed after
+# 'sd (..)'. By reading entered command line parameters, it determines possible
+# bash completions and writes them to the COMPREPLY variable. Bash then
+# completes the user input if only one entry is listed in the variable or
+# shows the options if more than one is listed in COMPREPLY.
+#
+# The script first determines the current parameter ($cur), the first word ($firstword).
+# Using the $firstword variable (= the command) and a giant switch/case,
+# completions are written to $complete_words and $complete_options.
+#
+# If the current user input ($cur) starts with '-', only $command_options are
+# displayed/completed, otherwise only $command_words.
+#
+# References
+# ----------
+# [1] http://stackoverflow.com/a/12495480/1440785
+# [2] http://tiswww.case.edu/php/chet/bash/FAQ
+#
+
+shopt -s progcomp
+
+_sd() {
+
+  local cur firstword complete_words complete_options
+
+  COMP_WORDBREAKS=${COMP_WORDBREAKS//[:=]}
+
+  cur=${COMP_WORDS[COMP_CWORD]}
+  firstword=$(_sd_get_firstword)
+
+  GLOBAL_COMMANDS="\
+    save\
+    update\
+    delete\
+    export\
+    list\
+    help"
+
+  GLOBAL_OPTIONS="\
+    -h --help"
+
+  SAVE_UPDATE_OPTIONS="\
+    -key\
+    -val"
+
+  DELETE_OPTIONS="\
+    -val"
+
+  EXPORT_OPTIONS="\
+    -id\
+    -ip\
+    -user"
+
+  case "${firstword}" in
+  save|update)
+    complete_options="$SAVE_UPDATE_OPTIONS"
+    ;;
+  delete)
+    complete_options="$DELETE_OPTIONS"
+    ;;
+  export)
+    complete_options="$EXPORT_OPTIONS"
+    ;;
+  *)
+    complete_words="$GLOBAL_COMMANDS "
+    complete_words+=$( sd keys )
+    complete_options="$GLOBAL_OPTIONS"
+    ;;
+  esac
+
+  # Either display words or options, depending on the user input
+  if [[ $cur == -* ]]; then
+    COMPREPLY=( $( compgen -W "$complete_options" -- $cur ))
+  else
+    COMPREPLY=( $( compgen -W "$complete_words" -- $cur ))
+  fi
+
+  return 0
+}
+
+
+# Determines the first non-option word of the command line. This is usually the command
+_sd_get_firstword() {
+  local firstword i
+
+  firstword=
+  for ((i = 1; i < ${#COMP_WORDS[@]}; ++i)); do
+    if [[ ${COMP_WORDS[i]} != -* ]]; then
+      firstword=${COMP_WORDS[i]}
+      break
+    fi
+  done
+
+  echo $firstword
+}
+
+## Define bash completions ###
+
+complete -F _sd sd

@@ -65,10 +65,20 @@ move_file_with_privilage () {
 	done
 }
 
+setup_bash_completion () {
+	if [[ -d "/etc/bash_completion.d/" ]]; then
+		curl https://raw.githubusercontent.com/alexanderConstantinescu/go-speed-dial/master/sd.bash-completion >> /etc/bash_completion.d/sd
+		echo "Bash completion for sd has been setup. Please start a new shell for the change to take affect"
+	else
+		echo "Directory: /etc/bash_completion.d/ does not exist. Cannot setup bash completion"
+	fi
+}
+
 if [[ $OS == "linux" ]] && [[ "$EUID" -eq 0 ]]; then
 	move_file_with_privilage
+	setup_bash_completion
 elif [[ $OS == "windows" ]] && net session &> /dev/null; then
-		move_file_with_privilage
+	move_file_with_privilage
 fi
 
 echo ""

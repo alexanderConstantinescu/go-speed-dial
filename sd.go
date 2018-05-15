@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"strings"
+	"sort"
 	"log"
 	"os"
 	"os/exec"
@@ -22,6 +23,7 @@ var (
 )
 
 var (
+	keys string = "keys"
 	save string  = "save"
 	update string = "update"
 	del string = "delete"
@@ -125,6 +127,14 @@ func verifyKey(sdMap map[string]string, key string) (string, bool) {
 	return val, exists
 }
 
+func printKeys(sdMap map[string]string) {
+	keys := make([]string, 0, len(sdMap))
+	for k, _ := range sdMap {
+		keys = append(keys, k)
+	}
+	fmt.Printf("%s", strings.Join(keys, " "))
+}
+
 func execCmd(cmd string) {
 	binary, err := exec.LookPath("bash")
 	if err != nil {
@@ -149,6 +159,8 @@ func parseCmd(val string) string {
 func printAsTable(sdMap map[string]string) {
 	padding := 5
 
+
+	var sortedKeys []string
 	maxKey := len(keyTableTitle)
 	maxVal := len(valueTableTitle)
 	for key, value := range sdMap {
@@ -158,7 +170,9 @@ func printAsTable(sdMap map[string]string) {
 		if len(value) > maxVal {
 			maxVal = len(value)
 		}
+		sortedKeys = append(sortedKeys, key)
 	}
+	sort.Strings(sortedKeys)
 
 	abs := func(val int) int {
 		if val < 0 {
@@ -180,8 +194,8 @@ func printAsTable(sdMap map[string]string) {
 		fmt.Println(tableBorder)
 		printTableRow(keyTableTitle, valueTableTitle)
 		fmt.Println(tableBorder)
-		for key, value := range sdMap {
-			printTableRow(key, value)
+		for _, sKey := range sortedKeys {
+			printTableRow(sKey, sdMap[sKey])
 		}
 		fmt.Println(tableBorder)
 	}()
@@ -201,42 +215,6 @@ func transferFile(ip string, privateKeyFile string, user string) {
 	execCmd(cmd)
 }
 
-/*func transferFile(ip string, privateKeyFile string, user string) {
-	privateKey := readPrivateKeyFile(privateKeyFile)
-
-	signer, _ := ssh.ParsePrivateKey(privateKey)
-	clientConfig := &ssh.ClientConfig{
-		User: user,
-		Auth: []ssh.AuthMethod{
-			ssh.PublicKeys(signer),
-		},
-	}
-
-	client, err := ssh.Dial("tcp", ip + ":22", clientConfig)
-	if err != nil {
-		panic("Failed to dial: " + err.Error())
-	}
-
-	session, err := client.NewSession()
-	if err != nil {
-		panic("Failed to create session: " + err.Error())
-	}
-
-	defer session.Close()
-	go func() {
-		w, _ := session.StdinPipe()
-		defer w.Close()
-		content := "123456789\n"
-		fmt.Fprintln(w, "D0755", 0, "testdir") // mkdir
-		fmt.Fprintln(w, "C0644", len(content), "testfile1")
-		fmt.Fprint(w, content)
-		fmt.Fprint(w, "\x00") // transfer end with \x00
-		fmt.Fprintln(w, "C0644", len(content), "testfile2")
-		fmt.Fprint(w, content)
-		fmt.Fprint(w, "\x00")
-	}()
-}*/
-
 func main() {
 
 	user,err := user.Current()
@@ -254,10 +232,11 @@ func main() {
 	saveKeyPtr := saveCommand.String("key", "", "Key to save. (Required)")
 	saveValPtr := saveCommand.String("val", "", "Val to map key to. (Required)\n\n" +
 						    "Note:\n" +
+						    "The key naming: \"keys\" is reserved. \n" +
 						    "Special characters such as: $ - for variable reference or ' - single quoutes need to be escaped using the \\ character\n\t" +
 						    "Ex: speedial save -key ex -val \"for i in {1,2,3}; do echo $\\i; done\"\n\t" +
 						    "or: speedial save -key ex2 -val \"echo I\\'m home\"\n\n" +
-						    "Save is implemented to save non-existing keys. To update a key use command: update")
+						    "Save is implemented to save non-existing keys. To update a key use command: update\n")
 	updateKeyPtr := updateCommand.String("key", "", "Key to update. (Required)")
 	updateValPtr := updateCommand.String("val", "", "Value to update key with. (Required)\n\n" +
 							"Note:\n" +
@@ -295,6 +274,10 @@ func main() {
 			if isHelpRequested(exportCommand, os.Args) {
 				os.Exit(0)
 			}
+		case keys:
+			sdMap := readFile(false)
+			printKeys(sdMap)
+			os.Exit(0)
 		case list:
 			listCommand.Parse(os.Args[2:])
 		case help, helpShort, helpShorter:
@@ -310,11 +293,10 @@ func main() {
 
 	if saveCommand.Parsed() {
 
-		if *saveKeyPtr == "" || *saveValPtr == "" {
+		if *saveKeyPtr == "" || *saveValPtr == "" || *saveKeyPtr == "keys" {
 			saveCommand.PrintDefaults()
 			os.Exit(1)
 		}
-
 		sdMap := readFile(false)
 		_, exists := verifyKey(sdMap, *saveKeyPtr)
 		if !exists {
