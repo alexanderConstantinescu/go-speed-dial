@@ -12,14 +12,14 @@ curl https://raw.githubusercontent.com/alexanderConstantinescu/go-speed-dial/mas
 
 The linux installation also does a setup of bash completion for speed dial during the install. The script needs to be executed as root.   
 
-### Windows - with UNIX terminal emulator 
+### Windows  
+
+This tool cannot be used on windows as the OS does not have an implementation of the execve system call in linux. This tool relies fundamentally on this system call as to replace the sd process with the user command requested during its execution. The best you can do is use the tool as a reminder of commands. To install:
 
 **Run as administrator**
 ```
 curl https://raw.githubusercontent.com/alexanderConstantinescu/go-speed-dial/master/install.sh >> tmp.sh && chmod +x tmp.sh && ./tmp.sh && rm tmp.sh
 ```
-
-**Attention**: syscall.Exec seems to have an issue on windows, this is currently under investigation
 
 ## Usage:
 
