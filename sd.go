@@ -23,6 +23,7 @@ var (
 )
 
 var (
+	get string = "get"
 	keys string = "keys"
 	save string  = "save"
 	update string = "update"
@@ -38,6 +39,7 @@ var helpText map[string]string = map[string]string{
 	save : "save\tSave a command as a speed dial key",
 	update : "update\tUpdate a saved speed dial key",
 	del : "delete\tDelete a saved speed dial key",
+	get : "get\tGet speed dial entities (keys, values) as a whitespace separated list. Useful for the creation of helper functions (bash completion for ex).",
 	export : "export\tExport your .dial_key file to another remote location",
 	list : "list\tList all dial keys",
 	help : "help\tPrint this help",
@@ -106,6 +108,7 @@ func printMainHelp() {
 	fmt.Println(helpText[save])
 	fmt.Println(helpText[update])
 	fmt.Println(helpText[del])
+	fmt.Println(helpText[get])
 	fmt.Println(helpText[export])
 	fmt.Println(helpText[list])
 	fmt.Println(helpText[help])
@@ -127,12 +130,16 @@ func verifyKey(sdMap map[string]string, key string) (string, bool) {
 	return val, exists
 }
 
-func printKeys(sdMap map[string]string) {
-	keys := make([]string, 0, len(sdMap))
-	for k, _ := range sdMap {
-		keys = append(keys, k)
+func printEntity(sdMap map[string]string, entity string) {
+	entityValues := make([]string, 0, len(sdMap))
+	for k, v := range sdMap {
+		if entity == keys {
+			entityValues = append(entityValues, k)
+		} else {
+			entityValues = append(entityValues, v)
+		}
 	}
-	fmt.Printf("%s", strings.Join(keys, " "))
+	fmt.Printf("%s", strings.Join(entityValues, " "))
 }
 
 func execCmd(cmd string) {
@@ -228,11 +235,12 @@ func main() {
 	deleteCommand := flag.NewFlagSet(del, flag.ExitOnError)
 	exportCommand := flag.NewFlagSet(export, flag.ExitOnError)
 	listCommand := flag.NewFlagSet(list, flag.ExitOnError)
+	getCommand := flag.NewFlagSet(get, flag.ExitOnError)
 
 	saveKeyPtr := saveCommand.String("key", "", "Key to save. (Required)")
 	saveValPtr := saveCommand.String("val", "", "Val to map key to. (Required)\n\n" +
 						    "Note:\n" +
-						    "The key naming: \"keys\" is reserved. \n" +
+						    "The key naming: \"keys\" is reserved and white space characters are not allowed in the key naming. \n" +
 						    "Special characters such as: $ - for variable reference or ' - single quoutes need to be escaped using the \\ character\n\t" +
 						    "Ex: speedial save -key ex -val \"for i in {1,2,3}; do echo $\\i; done\"\n\t" +
 						    "or: speedial save -key ex2 -val \"echo I\\'m home\"\n\n" +
@@ -274,10 +282,11 @@ func main() {
 			if isHelpRequested(exportCommand, os.Args) {
 				os.Exit(0)
 			}
-		case keys:
-			sdMap := readFile(false)
-			printKeys(sdMap)
-			os.Exit(0)
+		case get:
+			getCommand.Parse(os.Args[2:])
+			if isHelpRequested(getCommand, os.Args) {
+				os.Exit(0)
+			}
 		case list:
 			listCommand.Parse(os.Args[2:])
 		case help, helpShort, helpShorter:
@@ -293,7 +302,7 @@ func main() {
 
 	if saveCommand.Parsed() {
 
-		if *saveKeyPtr == "" || *saveValPtr == "" || *saveKeyPtr == "keys" {
+		if *saveKeyPtr == "" || *saveValPtr == "" || *saveKeyPtr == "keys" || strings.Contains(*saveKeyPtr, " ") {
 			saveCommand.PrintDefaults()
 			os.Exit(1)
 		}
@@ -351,8 +360,27 @@ func main() {
 	}
 
 	if listCommand.Parsed() {
+
 		sdMap := readFile(true)
 		printAsTable(sdMap)
+		os.Exit(0)
+	}
+
+	if getCommand.Parsed() {
+
+		if len(os.Args) < 3 {
+			getCommand.PrintDefaults()
+			os.Exit(1)
+		}
+
+		entity := os.Args[2]
+		if entity != "keys" && entity != "values" {
+			getCommand.PrintDefaults()
+			os.Exit(1)
+		}
+
+		sdMap := readFile(false)
+		printEntity(sdMap, entity)
 		os.Exit(0)
 	}
 
