@@ -1,6 +1,6 @@
 # go-speed-dial
 
-A GO project replicating and building upon the CLI tool made in the repository [speed-dial](https://github.com/alexanderConstantinescu/speed-dial). Basically this tool is intented as an intro for me to the GO programming language. 
+A Go project replicating and building upon the CLI tool made in the repository [speed-dial](https://github.com/alexanderConstantinescu/speed-dial). Basically this tool is intented as an intro for me to the Go programming language. 
 
 ## Installation 
 
