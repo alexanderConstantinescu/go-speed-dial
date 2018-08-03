@@ -24,7 +24,7 @@ fi
 
 FILENAME=$OS-$ARCH.$EXT
 
-DOWNLOAD_URL="https://github.com/alexanderConstantinescu/go-speed-dial/releases/download/0.1/$FILENAME"
+DOWNLOAD_URL="https://github.com/alexanderConstantinescu/go-speed-dial/releases/download/0.2/$FILENAME"
 
 echo "Downloading speed dial from $DOWNLOAD_URL"
 
