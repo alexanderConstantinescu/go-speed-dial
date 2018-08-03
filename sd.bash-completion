@@ -61,9 +61,12 @@ _sd() {
   GLOBAL_OPTIONS="\
     -h --help"
 
+  LIST_OPTIONS="\
+    -l"
+
   GET_OPTIONS="\
-    keys\
-    values"
+    -key\
+    -val"
 
   SAVE_UPDATE_OPTIONS="\
     -key\
@@ -79,22 +82,25 @@ _sd() {
 
   case "${firstword}" in
   save|update)
-    complete_words+=$( sd keys )
+    complete_words+=$( sd get -key )
     complete_options="$SAVE_UPDATE_OPTIONS"
     ;;
   delete)
-    complete_words+=$( sd keys )
+    complete_words+=$( sd get -key )
     complete_options="$DELETE_OPTIONS"
     ;;
   export)
     complete_options="$EXPORT_OPTIONS"
     ;;
   get)
-    complete_words="$GET_OPTIONS"
+    complete_options="$GET_OPTIONS"
+    ;;
+  list)
+    complete_options="$LIST_OPTIONS"
     ;;
   *)
     complete_words="$GLOBAL_COMMANDS "
-    complete_words+=$( sd get keys )
+    complete_words+=$( sd get -key )
     complete_options="$GLOBAL_OPTIONS"
     ;;
   esac

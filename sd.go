@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"encoding/json"
 	"runtime"
+	"strconv"
 )
 
 var keyFile string = getHomeDir() + string(os.PathSeparator) + ".dial_keys"
@@ -20,6 +21,10 @@ var keyFile string = getHomeDir() + string(os.PathSeparator) + ".dial_keys"
 var (
 	keyTableTitle string = "Key"
 	valueTableTitle string = "Value"
+	overflowIndicator string = "..."
+	maxKey int = len(keyTableTitle)
+	maxVal int = len(valueTableTitle)
+	overflowIndicatorLen int = len(overflowIndicator)
 )
 
 var (
@@ -142,6 +147,17 @@ func printEntity(sdMap map[string]string, entity string) {
 	fmt.Printf("%s", strings.Join(entityValues, " "))
 }
 
+func evalCmd(cmd string, args []string) string {
+	cmdResult := exec.Command(cmd, args...)
+	cmdResult.Stdin = os.Stdin
+	out, err := cmdResult.Output()
+	if err != nil {
+		log.Fatal("Could not evaluate cmd: ", err)
+		return ""
+	}
+	return string(out)
+}
+
 func execCmd(cmd string) {
 	binary, err := exec.LookPath("bash")
 	if err != nil {
@@ -163,30 +179,42 @@ func parseCmd(val string) string {
 	return strings.Replace(val, "\\", "", -1)
 }
 
-func printAsTable(sdMap map[string]string) {
+func printAsTable(sdMap map[string]string, listLong bool) {
 	padding := 5
 
+	windowSizes := evalCmd("stty", []string{"size"})
+	windowSize := strings.Split(windowSizes, " ")
+	windowWidth, _ := strconv.Atoi(strings.Replace(windowSize[1], "\n", "", 1))
+
+
+        abs := func(val int) int {
+                if val < 0 {
+                         return -val
+                }
+                return val
+        }
 
 	var sortedKeys []string
-	maxKey := len(keyTableTitle)
-	maxVal := len(valueTableTitle)
-	for key, value := range sdMap {
-		if len(key) > maxKey {
-			maxKey = len(key)
-		}
-		if len(value) > maxVal {
-			maxVal = len(value)
+	for key, _ := range sdMap {
+		keyLen := len(key)
+		if keyLen > maxKey{
+			maxKey = keyLen
 		}
 		sortedKeys = append(sortedKeys, key)
 	}
-	sort.Strings(sortedKeys)
 
-	abs := func(val int) int {
-		if val < 0 {
-			 return -val
+	for key, value := range sdMap {
+		valueLen := len(value)
+		if valueLen > maxVal {
+			maxVal = valueLen
 		}
-		return val
+		overflow := windowWidth - maxKey - valueLen - (4 * padding + 3)
+		if overflow < 0 && !listLong {
+			maxVal = valueLen - abs(overflow)
+			sdMap[key] = value[0: maxVal - overflowIndicatorLen] + overflowIndicator
+		}
 	}
+	sort.Strings(sortedKeys)
 
 	printTableRow := func(key string, value string) {
 		leftPaddingSpacing := strings.Repeat(" ", padding)
@@ -197,14 +225,14 @@ func printAsTable(sdMap map[string]string) {
 	}
 
 	func() {
-		tableBorder := strings.Repeat("-", maxVal + maxKey + (4 * padding + 3))
-		fmt.Println(tableBorder)
+		tableHorizontalBorder := strings.Repeat("-", maxVal + maxKey + (4 * padding + 3))
+		fmt.Println(tableHorizontalBorder)
 		printTableRow(keyTableTitle, valueTableTitle)
-		fmt.Println(tableBorder)
+		fmt.Println(tableHorizontalBorder)
 		for _, sKey := range sortedKeys {
 			printTableRow(sKey, sdMap[sKey])
 		}
-		fmt.Println(tableBorder)
+		fmt.Println(tableHorizontalBorder)
 	}()
 }
 
@@ -234,8 +262,13 @@ func main() {
 	updateCommand := flag.NewFlagSet(update, flag.ExitOnError)
 	deleteCommand := flag.NewFlagSet(del, flag.ExitOnError)
 	exportCommand := flag.NewFlagSet(export, flag.ExitOnError)
-	listCommand := flag.NewFlagSet(list, flag.ExitOnError)
+
 	getCommand := flag.NewFlagSet(get, flag.ExitOnError)
+	getKeyPtr := getCommand.Bool("key", false, "Get keys as a whitespace separated list")
+	getValuePtr := getCommand.Bool("value", false, "Get values as whitespace separated list")
+
+	listCommand := flag.NewFlagSet(list, flag.ExitOnError)
+	listLongPtr := listCommand.Bool("l", false, "List saved commands in a non-truncated format independent of screen size")
 
 	saveKeyPtr := saveCommand.String("key", "", "Key to save. (Required)")
 	saveValPtr := saveCommand.String("val", "", "Val to map key to. (Required)\n\n" +
@@ -289,6 +322,9 @@ func main() {
 			}
 		case list:
 			listCommand.Parse(os.Args[2:])
+			if isHelpRequested(listCommand, os.Args) {
+				os.Exit(0)
+			}
 		case help, helpShort, helpShorter:
 			printMainHelp()
 			os.Exit(0)
@@ -362,25 +398,24 @@ func main() {
 	if listCommand.Parsed() {
 
 		sdMap := readFile(true)
-		printAsTable(sdMap)
+		printAsTable(sdMap, *listLongPtr)
 		os.Exit(0)
 	}
 
 	if getCommand.Parsed() {
 
-		if len(os.Args) < 3 {
-			getCommand.PrintDefaults()
-			os.Exit(1)
-		}
-
-		entity := os.Args[2]
-		if entity != "keys" && entity != "values" {
+		if len(os.Args) != 3 {
 			getCommand.PrintDefaults()
 			os.Exit(1)
 		}
 
 		sdMap := readFile(false)
-		printEntity(sdMap, entity)
+		if *getKeyPtr {
+			printEntity(sdMap, "keys")
+		}
+		if *getValuePtr {
+			printEntity(sdMap, "values")
+		}
 		os.Exit(0)
 	}
 
