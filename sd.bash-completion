@@ -68,11 +68,11 @@ _sd() {
     -key\
     -val"
 
+  DELETE_OPTIONS="\
+    -key"
+
   SAVE_UPDATE_OPTIONS="\
     -key\
-    -val"
-
-  DELETE_OPTIONS="\
     -val"
 
   EXPORT_OPTIONS="\
@@ -81,12 +81,15 @@ _sd() {
     -user"
 
   case "${firstword}" in
-  save|update)
-    complete_words+=$( sd get -key )
+  save)
+    complete_options="$SAVE_UPDATE_OPTIONS"
+    ;;
+  update)
+    complete_words=$( sd get -key )
     complete_options="$SAVE_UPDATE_OPTIONS"
     ;;
   delete)
-    complete_words+=$( sd get -key )
+    complete_words=$( sd get -key )
     complete_options="$DELETE_OPTIONS"
     ;;
   export)
