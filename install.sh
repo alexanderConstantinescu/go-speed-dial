@@ -68,6 +68,7 @@ move_file_with_privilage () {
 setup_bash_completion () {
 	if [[ -d "/etc/bash_completion.d/" ]]; then
 		curl https://raw.githubusercontent.com/alexanderConstantinescu/go-speed-dial/master/sd.bash-completion >> /etc/bash_completion.d/sd
+		chmod 644 /etc/bash_completion.d/sd
 		echo "Bash completion for sd has been setup. Please start a new shell for the change to take affect"
 	else
 		echo "Directory: /etc/bash_completion.d/ does not exist. Cannot setup bash completion"
