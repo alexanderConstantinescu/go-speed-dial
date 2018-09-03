@@ -245,8 +245,13 @@ func readPrivateKeyFile(file string) []byte {
 	return content
 }
 
-func transferFile(ip string, privateKeyFile string, user string) {
-	cmd := "scp -i " + privateKeyFile + " " + keyFile + " " + user + "@" + ip + ":"
+func transferFile(ip string, privateKeyFile string, user string, sshAlias string) {
+	cmd := ""
+	if sshAlias != "" {
+		cmd = "scp " + keyFile + " " + sshAlias + ":"
+	} else {
+		cmd = "scp -i " + privateKeyFile + " " + keyFile + " " + user + "@" + ip + ":"
+	}
 	execCmd(cmd)
 }
 
@@ -278,14 +283,18 @@ func main() {
 						    "Ex: speedial save -key ex -val \"for i in {1,2,3}; do echo $\\i; done\"\n\t" +
 						    "or: speedial save -key ex2 -val \"echo I\\'m home\"\n\n" +
 						    "Save is implemented to save non-existing keys. To update a key use command: update\n")
+
 	updateKeyPtr := updateCommand.String("key", "", "Key to update. (Required)")
 	updateValPtr := updateCommand.String("val", "", "Value to update key with. (Required)\n\n" +
 							"Note:\n" +
 							"Update is implemented to update existing keys. To save a new use command: save")
+
 	deleteKeyPtr := deleteCommand.String("key", "", "Key to delete. (Required)")
-	exportIp := exportCommand.String("ip", "", "Destination IP to transfer file to. (Required)")
-	exportPrivateKeyFile := exportCommand.String("id", user.HomeDir + "/.ssh/id_rsa", "Specific private key file to use. (Required)")
-	exportUser := exportCommand.String("user", user.Username, "User to connect with to remote machine. (Required)")
+
+	exportIp := exportCommand.String("ip", "", "Destination IP to transfer file to. (Required if no SSH alias)")
+	exportPrivateKeyFile := exportCommand.String("id", user.HomeDir + "/.ssh/id_rsa", "Specific private key file to use. (Required if no SSH alias)")
+	exportUser := exportCommand.String("user", user.Username, "User to connect with to remote machine. (Required if no SSH alias)")
+	exportSshAlias := exportCommand.String("ssh", "", "SSH alias - useful in case of multi-hop export")
 
 	if (len(os.Args) < 2) {
 		fmt.Println("A subcommand or execution key is required")
@@ -421,12 +430,12 @@ func main() {
 
 	if exportCommand.Parsed() {
 
-		if *exportIp == "" {
+		if *exportIp == "" && *exportSshAlias == "" {
 			exportCommand.PrintDefaults()
 			os.Exit(1)
 		}
 
-		transferFile(*exportIp, *exportPrivateKeyFile, *exportUser)
+		transferFile(*exportIp, *exportPrivateKeyFile, *exportUser, *exportSshAlias)
 		os.Exit(0)
 	}
 }

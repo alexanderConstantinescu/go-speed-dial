@@ -86,6 +86,12 @@ speed-dial export -ip ${IP} -id ${IDENTITY_FILE} - user ${USER}
 
 Export allows you to export the .dial_keys file to any remote server. This is useful in case you already have the binary installed on a remote machine and want to export your preferences. 
 
+Alternatively you could use an defined ssh alias to export the file, as such you will be able to perform a multi-hop export as well.
+
+```
+speed-dial export -ssh $SSH_ALIAS
+```
+
 ### Execute
 
 ```
