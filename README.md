@@ -2,6 +2,14 @@
 
 A Go project replicating and building upon the CLI tool made in the repository [speed-dial](https://github.com/alexanderConstantinescu/speed-dial). Basically this tool is intented as an intro for me to the Go programming language. 
 
+This tool is nothing but a binary replicating the built-in BASH command: "alias" with some added sugar (features). 
+
+This binary could be useful for you in the following scenarios: 
+
+* you feel that alias is a bit limited (having to manually add commands to your ~/.bash_aliases file for "persistant storage", not being able to export it easily to other machines/virtual environments/etc)
+* you'd like to continue using aliases in shells which do not support it (lightweight containers running standard old-school shell, for example)
+* you manage clusters of containers and would like to have access to the same aliases in all containers (for debugging purposes, for example) and like to have them synchronized.
+
 ## Installation 
 
 ### Linux - based system
@@ -34,7 +42,7 @@ speed-dial save -key "your-key" -val "command"
 will save your command to a key in a .dial_keys file in your $HOME. The tool also allows for variable arguments to be associated to the command you save (this is done using the characters: {}, indicating variable argument), ex:
 
 ```
-speed-dial save -key demo -val "ssh {}@ip"
+speed-dial save -key demo -val "ssh {1}@ip"
 ```
 
 which if later called as:
@@ -50,6 +58,21 @@ ssh user@ip
 ```
 
 thus giving you the possibility to associate any username at execution.
+
+You can also "complete" a command by saving a key as follows:
+
+```
+sd save -key print -val "echo "
+```
+
+and invoking it as
+
+```
+$ sd print hello world 
+hello world
+```
+
+This works just as the standard built-in: "alias"
 
 **Attention:** the keyword "keys" is reserved and should not be used when saving commands. 
 
@@ -103,4 +126,4 @@ will execute your saved command
 ## Note
 
 * You might want to associate an alias for the binary as to more easily launch it, do so change .bash_aliases or your .bashrc in your $HOME directory. 
-* Only runs on a UNIX based terminal / terminal emulator. 
+* Only runs on a Linux based terminal / terminal emulator. 

@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"runtime"
 	"strconv"
+	"regexp"
 )
 
 var keyFile string = getHomeDir() + string(os.PathSeparator) + ".dial_keys"
@@ -147,8 +148,9 @@ func printEntity(sdMap map[string]string, entity string) {
 	fmt.Printf("%s", strings.Join(entityValues, " "))
 }
 
-func evalCmd(cmd string, args []string) string {
-	cmdResult := exec.Command(cmd, args...)
+func evalCmd(cmd string) string {
+	cmdArgs := []string{"-c", cmd}
+	cmdResult := exec.Command("bash", cmdArgs...)
 	cmdResult.Stdin = os.Stdin
 	out, err := cmdResult.Output()
 	if err != nil {
@@ -173,16 +175,23 @@ func execCmd(cmd string) {
 }
 
 func parseCmd(val string) string {
-	if len(os.Args) > 2 {
-		val = strings.Replace(val, "{}", os.Args[2], -1)
+	r,_ := regexp.Compile("{[0-9]+}")
+	if len(os.Args) > 2 && !r.MatchString(val) {
+		val = val + " " + strings.Join(os.Args[2:], " ")
+	} else if len(os.Args) > 2 {
+		matchedVals := r.FindAllString(val, -1)
+		replaceVals := os.Args[2:]
+		for idx, matchedVal := range matchedVals {
+			val = strings.Replace(val, matchedVal, replaceVals[idx], 1)
+		}
 	}
 	return strings.Replace(val, "\\", "", -1)
 }
 
 func printAsTable(sdMap map[string]string, listLong bool) {
 	padding := 5
-
-	windowSizes := evalCmd("stty", []string{"size"})
+	ellipsed := false
+	windowSizes := evalCmd("stty size")
 	windowSize := strings.Split(windowSizes, " ")
 	windowWidth, _ := strconv.Atoi(strings.Replace(windowSize[1], "\n", "", 1))
 
@@ -210,6 +219,7 @@ func printAsTable(sdMap map[string]string, listLong bool) {
 		}
 		overflow := windowWidth - maxKey - valueLen - (4 * padding + 3)
 		if overflow < 0 && !listLong {
+			ellipsed = true
 			maxVal = valueLen - abs(overflow)
 			sdMap[key] = value[0: maxVal - overflowIndicatorLen] + overflowIndicator
 		}
@@ -233,6 +243,9 @@ func printAsTable(sdMap map[string]string, listLong bool) {
 			printTableRow(sKey, sdMap[sKey])
 		}
 		fmt.Println(tableHorizontalBorder)
+		if ellipsed {
+			fmt.Println("Note: some values have been ellipsed. Add \"-l\" to see values in full. ")
+		}
 	}()
 }
 
