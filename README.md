@@ -1,8 +1,6 @@
 # go-speed-dial
 
-A Go project replicating and building upon the CLI tool made in the repository [speed-dial](https://github.com/alexanderConstantinescu/speed-dial). Basically this tool is intented as an intro for me to the Go programming language. 
-
-This tool is nothing but a binary replicating the built-in BASH command: "alias" with some added sugar (features). 
+A Go project replicating and building upon the BASH built-in "alias" (with some added sugar / features). Basically this tool is intented as an intro for me to the Go programming language.  
 
 This binary could be useful for you in the following scenarios: 
 
