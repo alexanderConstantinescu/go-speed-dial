@@ -17,6 +17,9 @@ elif [[ "$OSTYPE" == "win32" ]] || [[ "$OSTYPE" == "cygwin" ]] || [[ "$OSTYPE" =
 	OS="windows"
 	EXT="zip"
 	UNCOMPRESSED_FILENAME="sd.exe"
+elif [[ "$OSTYPE" == "darwin18" ]]; then
+	OS="darwin"
+	UNCOMPRESSED_FILENAME="sd"
 else
 	echo "No binary available for your OS '$OSTYPE'."
 	exit
@@ -58,24 +61,25 @@ move_file_with_privilage () {
 		if [[ -d "/usr/local/bin" && $i == "/usr/local/bin" ]]; then
 			move_file $i
 			break
-		elif [[ -d "/usr/bin" && $i == "/usr/bin" ]]; then
-			move_file $i
-			break
 		fi
 	done
 }
 
 setup_bash_completion () {
-	if [[ -d "/etc/bash_completion.d/" ]]; then
-		curl https://raw.githubusercontent.com/alexanderConstantinescu/go-speed-dial/master/sd.bash-completion >> /etc/bash_completion.d/sd
-		chmod 644 /etc/bash_completion.d/sd
+	BASH_COMPLETION_LOCATION=/etc/bash_completion.d/
+	if [[ $OS == "darwin" ]]; then
+		BASH_COMPLETION_LOCATION=$(brew --prefix)$BASH_COMPLETION_LOCATION
+	fi
+	if [[ -d "$BASH_COMPLETION_LOCATION" ]]; then
+		curl https://raw.githubusercontent.com/alexanderConstantinescu/go-speed-dial/master/sd.bash-completion >> $BASH_COMPLETION_LOCATION/sd
+		chmod 644 $BASH_COMPLETION_LOCATION/sd
 		echo "Bash completion for sd has been setup. Please start a new shell for the change to take affect"
 	else
-		echo "Directory: /etc/bash_completion.d/ does not exist. Cannot setup bash completion"
+		echo "Directory: $BASH_COMPLETION_LOCATION does not exist. Cannot setup bash completion"
 	fi
 }
 
-if [[ $OS == "linux" ]] && [[ "$EUID" -eq 0 ]]; then
+if { [ $OS == "linux" ] || [ $OS == "darwin" ]; } && [ "$EUID" -eq 0 ]; then
 	move_file_with_privilage
 	setup_bash_completion
 elif [[ $OS == "windows" ]] && net session &> /dev/null; then
