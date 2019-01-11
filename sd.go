@@ -18,6 +18,7 @@ import (
 )
 
 var keyFile string = getHomeDir() + string(os.PathSeparator) + ".dial_keys"
+var aliasFile string = getHomeDir() + string(os.PathSeparator) + ".bash_aliases"
 
 var (
 	keyTableTitle string = "Key"
@@ -258,7 +259,24 @@ func readPrivateKeyFile(file string) []byte {
 	return content
 }
 
-func transferFile(ip string, privateKeyFile string, user string, sshAlias string) {
+func exportToAlias() {
+	sdMap := readFile(false)
+	str := ""
+	for key, value := range sdMap {
+		str += "alias " + key + "=\"" + value + "\"\n"
+	}
+	if err := ioutil.WriteFile(aliasFile, []byte(str),  0644); err != nil  {
+		log.Fatal(err)
+		os.Exit(1)
+	}
+	fmt.Printf("Wrote speed-dial content to %s as BASH aliases \n", aliasFile) 
+}
+
+func transferFile(ip string, privateKeyFile string, user string, sshAlias string, exportToAliasFormat bool) {
+	if exportToAliasFormat {
+		exportToAlias()
+		os.Exit(0)
+	}
 	cmd := ""
 	if sshAlias != "" {
 		cmd = "scp " + keyFile + " " + sshAlias + ":"
@@ -308,6 +326,7 @@ func main() {
 	exportPrivateKeyFile := exportCommand.String("id", user.HomeDir + "/.ssh/id_rsa", "Specific private key file to use. (Required if no SSH alias)")
 	exportUser := exportCommand.String("user", user.Username, "User to connect with to remote machine. (Required if no SSH alias)")
 	exportSshAlias := exportCommand.String("ssh", "", "SSH alias - useful in case of multi-hop export")
+	exportToAliasFormat := exportCommand.Bool("to-alias", false, "Export to alias format and update " + user.HomeDir + "/.bash_aliases")
 
 	if (len(os.Args) < 2) {
 		fmt.Println("A subcommand or execution key is required")
@@ -443,12 +462,12 @@ func main() {
 
 	if exportCommand.Parsed() {
 
-		if *exportIp == "" && *exportSshAlias == "" {
+		if !*exportToAliasFormat && *exportIp == "" && *exportSshAlias == "" {
 			exportCommand.PrintDefaults()
 			os.Exit(1)
 		}
 
-		transferFile(*exportIp, *exportPrivateKeyFile, *exportUser, *exportSshAlias)
+		transferFile(*exportIp, *exportPrivateKeyFile, *exportUser, *exportSshAlias, *exportToAliasFormat)
 		os.Exit(0)
 	}
 }

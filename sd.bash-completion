@@ -79,7 +79,8 @@ _sd() {
     -id\
     -ssh\
     -ip\
-    -user"
+    -user\
+    -to-alias"
 
   case "${firstword}" in
   save)
