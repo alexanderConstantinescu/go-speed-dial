@@ -10,7 +10,7 @@ fi
 
 EXT="tar.gz"
 
-if [[ "$OSTYPE" == "linux-gnu" ]]; then
+if [[ "$OSTYPE" == "linux"* ]]; then
 	OS="linux"
 	UNCOMPRESSED_FILENAME="sd"
 elif [[ "$OSTYPE" == "win32" ]] || [[ "$OSTYPE" == "cygwin" ]] || [[ "$OSTYPE" == "msys" ]] ; then
