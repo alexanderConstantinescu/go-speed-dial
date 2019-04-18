@@ -33,7 +33,6 @@ var (
 	get string = "get"
 	keys string = "keys"
 	save string  = "save"
-	update string = "update"
 	del string = "delete"
 	export string = "export"
 	list string = "list"
@@ -43,8 +42,7 @@ var (
 )
 
 var helpText map[string]string = map[string]string{
-	save : "save\tSave a command as a speed dial key",
-	update : "update\tUpdate a saved speed dial key",
+	save : "save\tSave/update a command as a speed dial key",
 	del : "delete\tDelete a saved speed dial key",
 	get : "get\tGet speed dial entities (keys, values) as a whitespace separated list. Useful for the creation of helper functions (bash completion for ex).",
 	export : "export\tExport your .dial_key file to another remote location",
@@ -113,7 +111,6 @@ func printMainHelp() {
 	fmt.Println("Speed dial: a CLI intended to help you remember and faster execute commands you typically write, over and over again.")
 	fmt.Println("\nCommands:\n")
 	fmt.Println(helpText[save])
-	fmt.Println(helpText[update])
 	fmt.Println(helpText[del])
 	fmt.Println(helpText[get])
 	fmt.Println(helpText[export])
@@ -295,13 +292,12 @@ func main() {
 	}
 
 	saveCommand := flag.NewFlagSet(save, flag.ExitOnError)
-	updateCommand := flag.NewFlagSet(update, flag.ExitOnError)
 	deleteCommand := flag.NewFlagSet(del, flag.ExitOnError)
 	exportCommand := flag.NewFlagSet(export, flag.ExitOnError)
 
 	getCommand := flag.NewFlagSet(get, flag.ExitOnError)
 	getKeyPtr := getCommand.Bool("key", false, "Get keys as a whitespace separated list")
-	getValuePtr := getCommand.Bool("value", false, "Get values as whitespace separated list")
+	getValuePtr := getCommand.Bool("val", false, "Get values as whitespace separated list")
 
 	listCommand := flag.NewFlagSet(list, flag.ExitOnError)
 	listLongPtr := listCommand.Bool("l", false, "List saved commands in a non-truncated format independent of screen size")
@@ -309,16 +305,11 @@ func main() {
 	saveKeyPtr := saveCommand.String("key", "", "Key to save. (Required)")
 	saveValPtr := saveCommand.String("val", "", "Val to map key to. (Required)\n\n" +
 						    "Note:\n" +
-						    "The key naming: \"keys\" is reserved and white space characters are not allowed in the key naming. \n" +
+						    "White space characters are not allowed in the key naming. \n" +
 						    "Special characters such as: $ - for variable reference or ' - single quoutes need to be escaped using the \\ character\n\t" +
-						    "Ex: speedial save -key ex -val \"for i in {1,2,3}; do echo $\\i; done\"\n\t" +
-						    "or: speedial save -key ex2 -val \"echo I\\'m home\"\n\n" +
-						    "Save is implemented to save non-existing keys. To update a key use command: update\n")
-
-	updateKeyPtr := updateCommand.String("key", "", "Key to update. (Required)")
-	updateValPtr := updateCommand.String("val", "", "Value to update key with. (Required)\n\n" +
-							"Note:\n" +
-							"Update is implemented to update existing keys. To save a new use command: save")
+						    "Ex: sd save -key ex -val \"for i in {1,2,3}; do echo $\\i; done\"\n\t" +
+						    "or: sd save -key ex2 -val \"echo I\\'m home\"\n\t" +
+						    "or: sd save -key ex3 -val \"echo {1} {2}\", which can be expanded as: sd ex3 hello world -> hello world")
 
 	deleteKeyPtr := deleteCommand.String("key", "", "Key to delete. (Required)")
 
@@ -339,11 +330,6 @@ func main() {
 		case save:
 			saveCommand.Parse(os.Args[2:])
 			if isHelpRequested(saveCommand, os.Args) {
-				os.Exit(0)
-			}
-		case update:
-			updateCommand.Parse(os.Args[2:])
-			if isHelpRequested(updateCommand, os.Args) {
 				os.Exit(0)
 			}
 		case del:
@@ -371,7 +357,11 @@ func main() {
 			os.Exit(0)
 		default:
 			sdMap := readFile(true)
-			val,_ := verifyKey(sdMap, os.Args[1])
+			val,exists := verifyKey(sdMap, os.Args[1])
+			if !exists {
+				fmt.Printf("Cannot execute command: unknown key %s\n", os.Args[1])
+				os.Exit(1)
+			}
 			val = parseCmd(val)
 			execCmd(val)
 	}
@@ -379,7 +369,7 @@ func main() {
 
 	if saveCommand.Parsed() {
 
-		if *saveKeyPtr == "" || *saveValPtr == "" || *saveKeyPtr == "keys" || strings.Contains(*saveKeyPtr, " ") {
+		if *saveKeyPtr == "" || *saveValPtr == "" || strings.Contains(*saveKeyPtr, " ") {
 			saveCommand.PrintDefaults()
 			os.Exit(1)
 		}
@@ -388,32 +378,9 @@ func main() {
 		if !exists {
 			sdMap[*saveKeyPtr] = *saveValPtr
 			writeFile(sdMap)
-
 			fmt.Printf("Saved key %s as value: %s\n", *saveKeyPtr, *saveValPtr)
-			os.Exit(0)
 		}
-		fmt.Printf("Cannot execute command %s, key: %s exists. Use update instead.\n", save, *saveKeyPtr)
-		os.Exit(1)
-	}
-
-	if updateCommand.Parsed() {
-
-		if *updateKeyPtr == "" || *updateValPtr == "" {
-			updateCommand.PrintDefaults()
-			os.Exit(1)
-		}
-
-		sdMap := readFile(true)
-		_, exists := verifyKey(sdMap, *updateKeyPtr)
-		if exists {
-			sdMap[*updateKeyPtr] = *updateValPtr
-			writeFile(sdMap)
-
-			fmt.Printf("Updated key %s as value: %s\n", *updateKeyPtr, *updateValPtr)
-			os.Exit(0)
-		}
-		fmt.Printf("Cannot execute command: %s, unknown key %s\n", update, *updateKeyPtr)
-		os.Exit(1)
+		os.Exit(0)
 	}
 
 	if deleteCommand.Parsed() {

@@ -51,7 +51,6 @@ _sd() {
 
   GLOBAL_COMMANDS="\
     save\
-    update\
     delete\
     get\
     export\
@@ -66,12 +65,12 @@ _sd() {
 
   GET_OPTIONS="\
     -key\
-    -value"
+    -val"
 
   DELETE_OPTIONS="\
     -key"
 
-  SAVE_UPDATE_OPTIONS="\
+  SAVE_OPTIONS="\
     -key\
     -val"
 
@@ -84,11 +83,7 @@ _sd() {
 
   case "${firstword}" in
   save)
-    complete_options="$SAVE_UPDATE_OPTIONS"
-    ;;
-  update)
-    complete_words=$( sd get -key )
-    complete_options="$SAVE_UPDATE_OPTIONS"
+    complete_options="$SAVE_OPTIONS"
     ;;
   delete)
     complete_words=$( sd get -key )
