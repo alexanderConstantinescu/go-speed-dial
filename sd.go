@@ -1,53 +1,61 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
-	"strings"
-	"sort"
-	"log"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"os/user"
-	"syscall"
-	"io/ioutil"
-	"encoding/json"
-	"runtime"
-	"strconv"
 	"regexp"
+	"runtime"
+	"sort"
+	"strconv"
+	"strings"
+	"syscall"
 )
 
-var keyFile string = getHomeDir() + string(os.PathSeparator) + ".dial_keys"
-var aliasFile string = getHomeDir() + string(os.PathSeparator) + ".bash_aliases"
+var _error = fmt.Errorf
+var print = fmt.Printf
+var exit = os.Exit
+
+var rAll, _ = regexp.Compile("{\\S+}")
+var rDef, _ = regexp.Compile("{[0-9]+\\|.*}")
+var rReg, _ = regexp.Compile("{[0-9]+}")
+
+var keyFile = getHomeDir() + string(os.PathSeparator) + ".dial_keys"
+var aliasFile = getHomeDir() + string(os.PathSeparator) + ".bash_aliases"
 
 var (
-	keyTableTitle string = "Key"
-	valueTableTitle string = "Value"
-	overflowIndicator string = "..."
-	maxKey int = len(keyTableTitle)
-	maxVal int = len(valueTableTitle)
-	overflowIndicatorLen int = len(overflowIndicator)
+	keyTableTitle        = "Key"
+	valueTableTitle      = "Value"
+	overflowIndicator    = "..."
+	maxKey               = len(keyTableTitle)
+	maxVal               = len(valueTableTitle)
+	overflowIndicatorLen = len(overflowIndicator)
 )
 
 var (
-	get string = "get"
-	keys string = "keys"
-	save string  = "save"
-	del string = "delete"
-	export string = "export"
-	list string = "list"
-	help string = "help"
-	helpShort string = "-h"
-	helpShorter string = "--help"
+	GET         = "get"
+	KEYS        = "keys"
+	VALUES      = "values"
+	SAVE        = "save"
+	DELETE      = "delete"
+	EXPORT      = "export"
+	LIST        = "list"
+	HELP        = "help"
+	HELPSHORT   = "-h"
+	HELPSHORTER = "--help"
 )
 
-var helpText map[string]string = map[string]string{
-	save : "save\tSave/update a command as a speed dial key",
-	del : "delete\tDelete a saved speed dial key",
-	get : "get\tGet speed dial entities (keys, values) as a whitespace separated list. Useful for the creation of helper functions (bash completion for ex).",
-	export : "export\tExport your .dial_key file to another remote location",
-	list : "list\tList all dial keys",
-	help : "help\tPrint this help",
+var helpText = map[string]string{
+	SAVE:   "save\tSave/update a command as a speed dial key",
+	DELETE: "delete\tDelete a saved speed dial key",
+	GET:    "get\tGet speed dial entities (keys, values) as a whitespace separated list. Useful for the creation of helper functions (bash completion for ex).",
+	EXPORT: "export\tExport your .dial_key file to another remote location",
+	LIST:   "list\tList all dial keys",
+	HELP:   "help\tPrint this help",
 }
 
 func getHomeDir() string {
@@ -61,67 +69,87 @@ func getHomeDir() string {
 	return os.Getenv("HOME")
 }
 
-func readFile(checkRequired bool) map[string]string {
-
+func fileExists() bool {
 	if _, err := os.Stat(keyFile); os.IsNotExist(err) {
-		if checkRequired {
-			fmt.Println("No key has been saved, yet. Go ahead and save a command first.")
-			os.Exit(1)
-		 }
-		if err := ioutil.WriteFile(keyFile, []byte(`{}`),  0644); err != nil  {
-			log.Fatal(err)
-			os.Exit(1)
-		}
+		return false
 	}
-
-	f, err := ioutil.ReadFile(keyFile)
-
-	if err != nil {
-		log.Fatal(err)
-		os.Exit(1)
-	}
-
-	var speedDialStruct map[string]string
-
-	if err := json.Unmarshal(f, &speedDialStruct); err != nil {
-		log.Fatal(err)
-		os.Exit(1)
-	}
-	return speedDialStruct
-
+	return true
 }
 
-func writeFile(speedDialStruct map[string]string) {
-
-	speedDialJson, err := json.Marshal(speedDialStruct)
-
+func readFile() map[string]string {
+	f, err := ioutil.ReadFile(keyFile)
 	if err != nil {
-		log.Fatal(err)
-		os.Exit(1)
+		_error(err.Error())
+	}
+	speedDialStruct := map[string]string{}
+	if err := json.Unmarshal(f, &speedDialStruct); err != nil {
+		_error(err.Error())
+	}
+	return speedDialStruct
+}
+
+var writeFile = func(speedDialStruct map[string]string) {
+	speedDialJSON, err := json.Marshal(speedDialStruct)
+	if err != nil {
+		_error(err.Error())
+	}
+	if err := ioutil.WriteFile(keyFile, speedDialJSON, 0644); err != nil {
+		_error(err.Error())
+	}
+}
+
+var transferFile = func(ip string, privateSSHKeyFile string, user string, sshAlias string) int {
+	cmd := ""
+	if sshAlias != "" {
+		cmd = fmt.Sprintf("scp %s %s", keyFile, sshAlias)
+	} else {
+		cmd = fmt.Sprintf("scp -i %s %s %s:%s", privateSSHKeyFile, keyFile, user, ip)
+	}
+	return execCmd(cmd)
+}
+
+var exportToAlias = func() {
+	if fileExists() {
+		sdMap := readFile()
+		str := ""
+		for key, value := range sdMap {
+			str += fmt.Sprintf("alias %s=\"%s\"", key, value)
+		}
+		if err := ioutil.WriteFile(aliasFile, []byte(str), 0644); err != nil {
+			_error(err.Error())
+		}
+		print("Wrote speed-dial content to %s as BASH aliases\n", aliasFile)
+	}
+}
+
+var execCmd = func(cmd string) int {
+	binary, err := exec.LookPath("bash")
+	if err != nil {
+		_error(err.Error())
 	}
 
-	if err := ioutil.WriteFile(keyFile, speedDialJson,  0644); err != nil  {
-		log.Fatal(err)
-		os.Exit(1)
+	err = syscall.Exec(binary, []string{"bash", "-c", cmd}, os.Environ())
+	if err != nil {
+		_error(err.Error())
 	}
-
+	return 0
 }
 
 func printMainHelp() {
-	fmt.Println("Speed dial: a CLI intended to help you remember and faster execute commands you typically write, over and over again.")
-	fmt.Println("\nCommands:\n")
-	fmt.Println(helpText[save])
-	fmt.Println(helpText[del])
-	fmt.Println(helpText[get])
-	fmt.Println(helpText[export])
-	fmt.Println(helpText[list])
-	fmt.Println(helpText[help])
+	print("Speed dial: a CLI intended to help you remember and faster execute commands you typically write, over and over again.\n")
+	print("Commands:\n")
+	print("%s\n", helpText[SAVE])
+	print("%s\n", helpText[DELETE])
+	print("%s\n", helpText[GET])
+	print("%s\n", helpText[EXPORT])
+	print("%s\n", helpText[LIST])
+	print("%s\n", helpText[HELP])
 }
 
 func isHelpRequested(command *flag.FlagSet, args []string) bool {
 	for _, v := range args {
-		if v == help || v == helpShort || v == helpShorter {
-			fmt.Println(helpText[args[1]])
+		if v == HELP || v == HELPSHORT || v == HELPSHORTER {
+			print("%s\n", helpText[args[1]])
 			command.PrintDefaults()
 			return true
 		}
@@ -129,21 +157,17 @@ func isHelpRequested(command *flag.FlagSet, args []string) bool {
 	return false
 }
 
-func verifyKey(sdMap map[string]string, key string) (string, bool) {
-	val, exists := sdMap[key]
-	return val, exists
-}
-
 func printEntity(sdMap map[string]string, entity string) {
 	entityValues := make([]string, 0, len(sdMap))
 	for k, v := range sdMap {
-		if entity == keys {
+		if entity == KEYS {
 			entityValues = append(entityValues, k)
 		} else {
 			entityValues = append(entityValues, v)
 		}
 	}
-	fmt.Printf("%s", strings.Join(entityValues, " "))
+	sort.Strings(entityValues)
+	print("%s\n", strings.Join(entityValues, " "))
 }
 
 func evalCmd(cmd string) string {
@@ -152,38 +176,49 @@ func evalCmd(cmd string) string {
 	cmdResult.Stdin = os.Stdin
 	out, err := cmdResult.Output()
 	if err != nil {
-		log.Fatal("Could not evaluate cmd: ", err)
-		return ""
+		print("could not evaluate cmd \"%s\": %v\n", cmd, err.Error())
 	}
 	return string(out)
 }
 
-func execCmd(cmd string) {
-	binary, err := exec.LookPath("bash")
-	if err != nil {
-		log.Fatal(err)
-		os.Exit(1)
-	}
-
-	err = syscall.Exec(binary, []string{"bash", "-c", cmd}, os.Environ())
-	if err != nil {
-		log.Fatal(err)
-		os.Exit(1)
-	}
-}
-
-func parseCmd(val string) string {
-	r,_ := regexp.Compile("{[0-9]+}")
-	if len(os.Args) > 2 && !r.MatchString(val) {
-		val = val + " " + strings.Join(os.Args[2:], " ")
-	} else if len(os.Args) > 2 {
-		matchedVals := r.FindAllString(val, -1)
-		replaceVals := os.Args[2:]
-		for idx, matchedVal := range matchedVals {
-			val = strings.Replace(val, matchedVal, replaceVals[idx], 1)
+func parseCmd(val string, args []string) string {
+	if len(args) > 0 {
+		if rAll.MatchString(val) {
+			matchedVals := rAll.FindAllString(val, -1)
+			for _, matchedVal := range matchedVals {
+				if strings.Contains(matchedVal, "|") {
+					if len(args) == 0 {
+						defaultVal := strings.Split(matchedVal, "|")
+						defaultVal = strings.Split(defaultVal[1], "}")
+						val = strings.Replace(val, matchedVal, defaultVal[0], 1)
+					} else {
+						val = strings.Replace(val, matchedVal, args[0], 1)
+					}
+				} else {
+					val = strings.Replace(val, matchedVal, args[0], 1)
+				}
+				if len(args) > 0 {
+					_, args = args[0], args[1:]
+				}
+			}
+		}
+		if len(args) > 0 {
+			val = val + " " + strings.Join(args, " ")
 		}
 	}
 	return strings.Replace(val, "\\", "", -1)
+}
+
+func isValidSave(cmd string) bool {
+	regularIdx := rReg.FindAllStringIndex(cmd, len(cmd))
+	defaultIdx := rDef.FindAllStringIndex(cmd, len(cmd))
+	if len(regularIdx) == 0 {
+		return true
+	}
+	if len(defaultIdx) == 0 {
+		return true
+	}
+	return defaultIdx[0][0] > regularIdx[len(regularIdx)-1][1]
 }
 
 func printAsTable(sdMap map[string]string, listLong bool) {
@@ -193,18 +228,17 @@ func printAsTable(sdMap map[string]string, listLong bool) {
 	windowSize := strings.Split(windowSizes, " ")
 	windowWidth, _ := strconv.Atoi(strings.Replace(windowSize[1], "\n", "", 1))
 
-
-        abs := func(val int) int {
-                if val < 0 {
-                         return -val
-                }
-                return val
-        }
+	abs := func(val int) int {
+		if val < 0 {
+			return -val
+		}
+		return val
+	}
 
 	var sortedKeys []string
-	for key, _ := range sdMap {
+	for key := range sdMap {
 		keyLen := len(key)
-		if keyLen > maxKey{
+		if keyLen > maxKey {
 			maxKey = keyLen
 		}
 		sortedKeys = append(sortedKeys, key)
@@ -215,223 +249,236 @@ func printAsTable(sdMap map[string]string, listLong bool) {
 		if valueLen > maxVal {
 			maxVal = valueLen
 		}
-		overflow := windowWidth - maxKey - valueLen - (4 * padding + 3)
+		overflow := windowWidth - maxKey - valueLen - (4*padding + 3)
 		if overflow < 0 && !listLong {
 			ellipsed = true
 			maxVal = valueLen - abs(overflow)
-			sdMap[key] = value[0: maxVal - overflowIndicatorLen] + overflowIndicator
+			sdMap[key] = value[0:maxVal-overflowIndicatorLen] + overflowIndicator
 		}
 	}
 	sort.Strings(sortedKeys)
 
 	printTableRow := func(key string, value string) {
 		leftPaddingSpacing := strings.Repeat(" ", padding)
-		keyRightPaddingSpacing := strings.Repeat(" ", abs(maxKey - len(key)) + padding)
-		valueRightPaddingSpacing := strings.Repeat(" ", abs(maxVal - len(value)) + padding)
-		fmt.Println("|" + leftPaddingSpacing + key + keyRightPaddingSpacing + "|" + leftPaddingSpacing +  value + valueRightPaddingSpacing + "|")
+		keyRightPaddingSpacing := strings.Repeat(" ", abs(maxKey-len(key))+padding)
+		valueRightPaddingSpacing := strings.Repeat(" ", abs(maxVal-len(value))+padding)
+		print("|" + leftPaddingSpacing + key + keyRightPaddingSpacing + "|" + leftPaddingSpacing + value + valueRightPaddingSpacing + "|\n")
 
 	}
 
-	func() {
-		tableHorizontalBorder := strings.Repeat("-", maxVal + maxKey + (4 * padding + 3))
-		fmt.Println(tableHorizontalBorder)
-		printTableRow(keyTableTitle, valueTableTitle)
-		fmt.Println(tableHorizontalBorder)
-		for _, sKey := range sortedKeys {
-			printTableRow(sKey, sdMap[sKey])
-		}
-		fmt.Println(tableHorizontalBorder)
-		if ellipsed {
-			fmt.Println("Note: some values have been ellipsed. Add \"-l\" to see values in full. ")
-		}
-	}()
+	tableHorizontalBorder := strings.Repeat("-", maxVal+maxKey+(4*padding+3))
+
+	print(tableHorizontalBorder + "\n")
+	printTableRow(keyTableTitle, valueTableTitle)
+
+	print(tableHorizontalBorder + "\n")
+	for _, sKey := range sortedKeys {
+		printTableRow(sKey, sdMap[sKey])
+	}
+
+	print(tableHorizontalBorder + "\n")
+	if ellipsed {
+		print("Note: some values have been ellipsed. Add \"-l\" to see values in full.\n")
+	}
 }
 
 func readPrivateKeyFile(file string) []byte {
 	content, err := ioutil.ReadFile(file)
 	if err != nil {
-		log.Fatal(err)
-		os.Exit(1)
+		_error(err.Error())
 	}
 	return content
 }
 
-func exportToAlias() {
-	sdMap := readFile(false)
-	str := ""
-	for key, value := range sdMap {
-		str += "alias " + key + "=\"" + value + "\"\n"
+func execute(key string, args []string) int {
+	if !fileExists() {
+		return 1
 	}
-	if err := ioutil.WriteFile(aliasFile, []byte(str),  0644); err != nil  {
-		log.Fatal(err)
-		os.Exit(1)
+	sdMap := readFile()
+	val, exists := sdMap[key]
+	if !exists {
+		print("cannot execute command: unknown key \"%s\"\n", key)
+		return 1
 	}
-	fmt.Printf("Wrote speed-dial content to %s as BASH aliases \n", aliasFile) 
+	val = parseCmd(val, args)
+	return execCmd(val)
 }
 
-func transferFile(ip string, privateKeyFile string, user string, sshAlias string, exportToAliasFormat bool) {
+func save(command *flag.FlagSet, key, val string) int {
+	if key == "" || val == "" || strings.Contains(key, " ") {
+		command.PrintDefaults()
+		return 1
+	}
+	if !fileExists() {
+		writeFile(map[string]string{})
+	}
+	sdMap := readFile()
+	if isValidSave(val) {
+		sdMap[key] = val
+		writeFile(sdMap)
+		print("Saved key %s as value: %s", key, val)
+		return 0
+	}
+	print("cannot save key: \"%s\", value: \"%s\" contains default argument preceeding regular argument", key, val)
+	return 1
+}
+
+func deleted(command *flag.FlagSet, key string) int {
+	if key == "" {
+		command.PrintDefaults()
+		return 1
+	}
+	if !fileExists() {
+		return 1
+	}
+	sdMap := readFile()
+	if _, exists := sdMap[key]; exists {
+		delete(sdMap, string(key))
+		writeFile(sdMap)
+		print("deleted the key: %s from speed dial keys", key)
+		return 0
+	}
+	print("cannot execute command: %s, unknown key %s", DELETE, key)
+	return 1
+}
+
+func get(command *flag.FlagSet, getKey, getVal bool) int {
+	if getKey && getVal {
+		command.PrintDefaults()
+		return 1
+	}
+	if !fileExists() {
+		return 1
+	}
+	sdMap := readFile()
+	if getKey {
+		printEntity(sdMap, KEYS)
+	}
+	if getVal {
+		printEntity(sdMap, VALUES)
+	}
+	return 0
+}
+
+func export(command *flag.FlagSet, exportToAliasFormat bool, exportIP, exportPrivateKeyFile, exportUser, exportSSHAlias string) int {
 	if exportToAliasFormat {
 		exportToAlias()
-		os.Exit(0)
+		return 0
 	}
-	cmd := ""
-	if sshAlias != "" {
-		cmd = "scp " + keyFile + " " + sshAlias + ":"
-	} else {
-		cmd = "scp -i " + privateKeyFile + " " + keyFile + " " + user + "@" + ip + ":"
+	if (exportIP == "" && exportSSHAlias == "") || (exportIP != "" && exportSSHAlias != "") {
+		command.PrintDefaults()
+		return 1
 	}
-	execCmd(cmd)
+	return transferFile(exportIP, exportPrivateKeyFile, exportUser, exportSSHAlias)
 }
 
-func main() {
-
-	user,err := user.Current()
-	if err != nil {
-		log.Fatal(err)
-		os.Exit(1)
+func list(listLong bool) int {
+	if !fileExists() {
+		return 1
 	}
+	sdMap := readFile()
+	printAsTable(sdMap, listLong)
+	return 0
+}
 
-	saveCommand := flag.NewFlagSet(save, flag.ExitOnError)
-	deleteCommand := flag.NewFlagSet(del, flag.ExitOnError)
-	exportCommand := flag.NewFlagSet(export, flag.ExitOnError)
+func sd(user *user.User) int {
 
-	getCommand := flag.NewFlagSet(get, flag.ExitOnError)
+	saveCommand := flag.NewFlagSet(SAVE, flag.ExitOnError)
+	deleteCommand := flag.NewFlagSet(DELETE, flag.ExitOnError)
+	exportCommand := flag.NewFlagSet(EXPORT, flag.ExitOnError)
+
+	getCommand := flag.NewFlagSet(GET, flag.ExitOnError)
 	getKeyPtr := getCommand.Bool("key", false, "Get keys as a whitespace separated list")
-	getValuePtr := getCommand.Bool("val", false, "Get values as whitespace separated list")
+	getValPtr := getCommand.Bool("val", false, "Get values as whitespace separated list")
 
-	listCommand := flag.NewFlagSet(list, flag.ExitOnError)
+	listCommand := flag.NewFlagSet(LIST, flag.ExitOnError)
 	listLongPtr := listCommand.Bool("l", false, "List saved commands in a non-truncated format independent of screen size")
 
 	saveKeyPtr := saveCommand.String("key", "", "Key to save. (Required)")
-	saveValPtr := saveCommand.String("val", "", "Val to map key to. (Required)\n\n" +
-						    "Note:\n" +
-						    "White space characters are not allowed in the key naming. \n" +
-						    "Special characters such as: $ - for variable reference or ' - single quoutes need to be escaped using the \\ character\n\t" +
-						    "Ex: sd save -key ex -val \"for i in {1,2,3}; do echo $\\i; done\"\n\t" +
-						    "or: sd save -key ex2 -val \"echo I\\'m home\"\n\t" +
-						    "or: sd save -key ex3 -val \"echo {1} {2}\", which can be expanded as: sd ex3 hello world -> hello world")
+	saveValPtr := saveCommand.String("val", "", "Val to map key to. (Required)\n\n"+
+		"Note:\n"+
+		"White space characters are not allowed in the key naming. \n"+
+		"Special characters such as: $ - for variable reference or ' - single quoutes need to be escaped using the \\ character\n\t"+
+		"Ex: sd save -key ex -val \"for i in {1,2,3}; do echo $\\i; done\"\n\t"+
+		"or: sd save -key ex2 -val \"echo I\\'m home\"\n\t"+
+		"or: sd save -key ex3 -val \"echo {1} {2}\", which can be expanded as: sd ex3 hello world -> hello world")
 
 	deleteKeyPtr := deleteCommand.String("key", "", "Key to delete. (Required)")
 
-	exportIp := exportCommand.String("ip", "", "Destination IP to transfer file to. (Required if no SSH alias)")
-	exportPrivateKeyFile := exportCommand.String("id", user.HomeDir + "/.ssh/id_rsa", "Specific private key file to use. (Required if no SSH alias)")
+	exportIP := exportCommand.String("ip", "", "Destination IP to transfer file to. (Required if no SSH alias)")
+	exportPrivateKeyFile := exportCommand.String("id", user.HomeDir+"/.ssh/id_rsa", "Specific private key file to use. (Required if no SSH alias)")
 	exportUser := exportCommand.String("user", user.Username, "User to connect with to remote machine. (Required if no SSH alias)")
-	exportSshAlias := exportCommand.String("ssh", "", "SSH alias - useful in case of multi-hop export")
-	exportToAliasFormat := exportCommand.Bool("to-alias", false, "Export to alias format and update " + user.HomeDir + "/.bash_aliases")
+	exportSSHAlias := exportCommand.String("ssh", "", "SSH alias - useful in case of multi-hop export")
+	exportToAliasFormat := exportCommand.Bool("to-alias", false, "Export to alias format and update "+user.HomeDir+"/.bash_aliases")
 
-	if (len(os.Args) < 2) {
-		fmt.Println("A subcommand or execution key is required")
+	exitCode := 0
+
+	if len(os.Args) < 2 {
+		print("A subcommand or execution key is required\n")
 		printMainHelp()
-		os.Exit(1)
+		return 1
 	}
 
 	switch os.Args[1] {
 
-		case save:
-			saveCommand.Parse(os.Args[2:])
-			if isHelpRequested(saveCommand, os.Args) {
-				os.Exit(0)
-			}
-		case del:
-			deleteCommand.Parse(os.Args[2:])
-			if isHelpRequested(deleteCommand, os.Args) {
-				os.Exit(0)
-			}
-		case export:
-			exportCommand.Parse(os.Args[2:])
-			if isHelpRequested(exportCommand, os.Args) {
-				os.Exit(0)
-			}
-		case get:
-			getCommand.Parse(os.Args[2:])
-			if isHelpRequested(getCommand, os.Args) {
-				os.Exit(0)
-			}
-		case list:
-			listCommand.Parse(os.Args[2:])
-			if isHelpRequested(listCommand, os.Args) {
-				os.Exit(0)
-			}
-		case help, helpShort, helpShorter:
-			printMainHelp()
-			os.Exit(0)
-		default:
-			sdMap := readFile(true)
-			val,exists := verifyKey(sdMap, os.Args[1])
-			if !exists {
-				fmt.Printf("Cannot execute command: unknown key %s\n", os.Args[1])
-				os.Exit(1)
-			}
-			val = parseCmd(val)
-			execCmd(val)
+	case SAVE:
+		saveCommand.Parse(os.Args[2:])
+		if isHelpRequested(saveCommand, os.Args) {
+			return 0
+		}
+	case DELETE:
+		deleteCommand.Parse(os.Args[2:])
+		if isHelpRequested(deleteCommand, os.Args) {
+			return 0
+		}
+	case EXPORT:
+		exportCommand.Parse(os.Args[2:])
+		if isHelpRequested(exportCommand, os.Args) {
+			return 0
+		}
+	case GET:
+		getCommand.Parse(os.Args[2:])
+		if isHelpRequested(getCommand, os.Args) {
+			return 0
+		}
+	case LIST:
+		listCommand.Parse(os.Args[2:])
+		if isHelpRequested(listCommand, os.Args) {
+			return 0
+		}
+	case HELP, HELPSHORT, HELPSHORTER:
+		printMainHelp()
+		return 0
+	default:
+		exitCode = execute(os.Args[1], os.Args[2:])
 	}
 
-
 	if saveCommand.Parsed() {
-
-		if *saveKeyPtr == "" || *saveValPtr == "" || strings.Contains(*saveKeyPtr, " ") {
-			saveCommand.PrintDefaults()
-			os.Exit(1)
-		}
-		sdMap := readFile(false)
-		sdMap[*saveKeyPtr] = *saveValPtr
-		writeFile(sdMap)
-		fmt.Printf("Saved key %s as value: %s\n", *saveKeyPtr, *saveValPtr)
-		os.Exit(0)
+		exitCode = save(saveCommand, *saveKeyPtr, *saveValPtr)
 	}
 
 	if deleteCommand.Parsed() {
-
-		if *deleteKeyPtr == "" {
-			deleteCommand.PrintDefaults()
-			os.Exit(1)
-		}
-
-		sdMap := readFile(true)
-		_, exists := verifyKey(sdMap, *deleteKeyPtr)
-		if exists {
-			delete(sdMap, string(*deleteKeyPtr))
-			writeFile(sdMap)
-
-			fmt.Printf("Deleted the key %s from speed dial keys\n", *deleteKeyPtr)
-			os.Exit(0)
-		}
-		fmt.Printf("Cannot execute command: %s, unknown key %s\n", del, *deleteKeyPtr)
-		os.Exit(1)
+		exitCode = deleted(deleteCommand, *deleteKeyPtr)
 	}
 
 	if listCommand.Parsed() {
-
-		sdMap := readFile(true)
-		printAsTable(sdMap, *listLongPtr)
-		os.Exit(0)
+		exitCode = list(*listLongPtr)
 	}
 
 	if getCommand.Parsed() {
-
-		if len(os.Args) != 3 {
-			getCommand.PrintDefaults()
-			os.Exit(1)
-		}
-
-		sdMap := readFile(false)
-		if *getKeyPtr {
-			printEntity(sdMap, "keys")
-		}
-		if *getValuePtr {
-			printEntity(sdMap, "values")
-		}
-		os.Exit(0)
+		exitCode = get(getCommand, *getKeyPtr, *getValPtr)
 	}
 
 	if exportCommand.Parsed() {
-
-		if !*exportToAliasFormat && *exportIp == "" && *exportSshAlias == "" {
-			exportCommand.PrintDefaults()
-			os.Exit(1)
-		}
-
-		transferFile(*exportIp, *exportPrivateKeyFile, *exportUser, *exportSshAlias, *exportToAliasFormat)
-		os.Exit(0)
+		exitCode = export(exportCommand, *exportToAliasFormat, *exportIP, *exportPrivateKeyFile, *exportUser, *exportSSHAlias)
 	}
+	return exitCode
+}
+
+func main() {
+	user, err := user.Current()
+	if err != nil {
+		_error(err.Error())
+	}
+	exit(sd(user))
 }

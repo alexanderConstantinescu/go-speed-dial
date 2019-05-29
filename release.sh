@@ -2,6 +2,8 @@
 
 set -e 
 
+go test .
+
 arr=("amd64" "386")
 
 for CPU_V in ${arr[@]}; do
