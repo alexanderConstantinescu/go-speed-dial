@@ -212,6 +212,15 @@ func TestParseCMD(t *testing.T) {
 			tOutput: "echo hello world from sd",
 		},
 		{
+			tName: "Test parse CMD",
+			tInput: []T{
+				"echo {1|test} from sd",
+				[]string{},
+			},
+			tFunc:   parseCmd,
+			tOutput: "echo test from sd",
+		},
+		{
 			tName: "Test parse without variable expansion",
 			tInput: []T{
 				"echo this is something",

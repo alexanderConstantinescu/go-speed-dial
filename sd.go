@@ -182,29 +182,27 @@ func evalCmd(cmd string) string {
 }
 
 func parseCmd(val string, args []string) string {
-	if len(args) > 0 {
-		if rAll.MatchString(val) {
-			matchedVals := rAll.FindAllString(val, -1)
-			for _, matchedVal := range matchedVals {
-				if strings.Contains(matchedVal, "|") {
-					if len(args) == 0 {
-						defaultVal := strings.Split(matchedVal, "|")
-						defaultVal = strings.Split(defaultVal[1], "}")
-						val = strings.Replace(val, matchedVal, defaultVal[0], 1)
-					} else {
-						val = strings.Replace(val, matchedVal, args[0], 1)
-					}
+	if rAll.MatchString(val) {
+		matchedVals := rAll.FindAllString(val, -1)
+		for _, matchedVal := range matchedVals {
+			if strings.Contains(matchedVal, "|") {
+				if len(args) == 0 {
+					defaultVal := strings.Split(matchedVal, "|")
+					defaultVal = strings.Split(defaultVal[1], "}")
+					val = strings.Replace(val, matchedVal, defaultVal[0], 1)
 				} else {
 					val = strings.Replace(val, matchedVal, args[0], 1)
 				}
-				if len(args) > 0 {
-					_, args = args[0], args[1:]
-				}
+			} else {
+				val = strings.Replace(val, matchedVal, args[0], 1)
+			}
+			if len(args) > 0 {
+				_, args = args[0], args[1:]
 			}
 		}
-		if len(args) > 0 {
-			val = val + " " + strings.Join(args, " ")
-		}
+	}
+	if len(args) > 0 {
+		val = val + " " + strings.Join(args, " ")
 	}
 	return strings.Replace(val, "\\", "", -1)
 }
@@ -301,6 +299,7 @@ func execute(key string, args []string) int {
 		return 1
 	}
 	val = parseCmd(val, args)
+
 	return execCmd(val)
 }
 
