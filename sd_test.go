@@ -212,13 +212,45 @@ func TestParseCMD(t *testing.T) {
 			tOutput: "echo hello world from sd",
 		},
 		{
-			tName: "Test parse CMD",
+			tName: "Test parse CMD with one default arg",
 			tInput: []T{
 				"echo {1|test} from sd",
 				[]string{},
 			},
 			tFunc:   parseCmd,
 			tOutput: "echo test from sd",
+		},
+		{
+			tName: "Test parse CMD with multiple same default arg",
+			tInput: []T{
+				"echo {1|test} {1|test} {1|test} from sd",
+				[]string{},
+			},
+			tFunc:   parseCmd,
+			tOutput: "echo test test test from sd",
+		},
+		{
+			tName: "Test parse CMD with multiple same default arg",
+			tInput: []T{
+				"echo {1|test} {1|test} {1|test} from sd",
+				[]string{
+					"something",
+				},
+			},
+			tFunc:   parseCmd,
+			tOutput: "echo something something something from sd",
+		},
+		{
+			tName: "Test parse CMD with more args than parameters",
+			tInput: []T{
+				"echo {1} {2} from sd",
+				[]string{
+					"something",
+				},
+			},
+			tFunc:       parseCmd,
+			tOutput:     "",
+			tPipeOutput: "Cannot parse cmd: echo {1} {2} from sd, not enough arguments: [something]",
 		},
 		{
 			tName: "Test parse without variable expansion",

@@ -23,6 +23,7 @@ var exit = os.Exit
 var rAll, _ = regexp.Compile("{\\S+}")
 var rDef, _ = regexp.Compile("{[0-9]+\\|.*}")
 var rReg, _ = regexp.Compile("{[0-9]+}")
+var aReg, _ = regexp.Compile("{([0-9])+")
 
 var keyFile = getHomeDir() + string(os.PathSeparator) + ".dial_keys"
 var aliasFile = getHomeDir() + string(os.PathSeparator) + ".bash_aliases"
@@ -181,30 +182,39 @@ func evalCmd(cmd string) string {
 	return string(out)
 }
 
-func parseCmd(val string, args []string) string {
-	if rAll.MatchString(val) {
-		matchedVals := rAll.FindAllString(val, -1)
-		for _, matchedVal := range matchedVals {
+func parseCmd(cmd string, args []string) string {
+
+	origCmd := cmd
+	argMapping := map[int]string{}
+	var argIdx, regexIdx int
+
+	for idx, arg := range args {
+		argMapping[idx+1] = arg
+		argIdx++
+	}
+
+	for _, matchedVal := range rAll.FindAllString(cmd, -1) {
+		fIdx, _ := strconv.Atoi(aReg.FindStringSubmatch(matchedVal)[1])
+		if replaceArg, ok := argMapping[fIdx]; ok {
+			cmd = strings.Replace(cmd, matchedVal, replaceArg, 1)
+		} else {
 			if strings.Contains(matchedVal, "|") {
-				if len(args) == 0 {
-					defaultVal := strings.Split(matchedVal, "|")
-					defaultVal = strings.Split(defaultVal[1], "}")
-					val = strings.Replace(val, matchedVal, defaultVal[0], 1)
-				} else {
-					val = strings.Replace(val, matchedVal, args[0], 1)
-				}
+				defaultVal := strings.Split(matchedVal, "|")
+				defaultVal = strings.Split(defaultVal[1], "}")
+				cmd = strings.Replace(cmd, matchedVal, defaultVal[0], 1)
 			} else {
-				val = strings.Replace(val, matchedVal, args[0], 1)
-			}
-			if len(args) > 0 {
-				_, args = args[0], args[1:]
+				print("Cannot parse cmd: %s, not enough arguments: %v", origCmd, args)
+				return ""
 			}
 		}
+		regexIdx++
 	}
-	if len(args) > 0 {
-		val = val + " " + strings.Join(args, " ")
+
+	if argIdx > regexIdx {
+		cmd = cmd + " " + strings.Join(args[regexIdx:], " ")
 	}
-	return strings.Replace(val, "\\", "", -1)
+
+	return strings.Replace(cmd, "\\", "", -1)
 }
 
 func isValidSave(cmd string) bool {
