@@ -214,7 +214,7 @@ func parseCmd(cmd string, args []string) string {
 		cmd = cmd + " " + strings.Join(args[regexIdx:], " ")
 	}
 
-	return strings.Replace(cmd, "\\", "", -1)
+	return cmd
 }
 
 func isValidSave(cmd string) bool {
@@ -309,7 +309,6 @@ func execute(key string, args []string) int {
 		return 1
 	}
 	val = parseCmd(val, args)
-
 	return execCmd(val)
 }
 
