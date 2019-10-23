@@ -230,6 +230,15 @@ func TestParseCMD(t *testing.T) {
 			tOutput: "echo test test test from sd",
 		},
 		{
+                        tName: "Test parse CMD with multiple parameters which could seem to be the same",
+                        tInput: []T{
+                                "test -ojsonpath='{range .spec.template.spec.containers[0].env[?(@.value)]}{.name}{=}{.value}{n}' > $CLUSTER/env.sh",
+                                []string{},
+                        },
+                        tFunc:   parseCmd,
+                        tOutput: "test -ojsonpath='{range .spec.template.spec.containers[0].env[?(@.value)]}{.name}{=}{.value}{n}' > $CLUSTER/env.sh",
+                },
+		{
 			tName: "Test parse CMD with multiple same default arg",
 			tInput: []T{
 				"echo {1|test} {1|test} {1|test} from sd",

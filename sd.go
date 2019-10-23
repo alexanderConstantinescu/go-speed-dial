@@ -20,7 +20,7 @@ var _error = fmt.Errorf
 var print = fmt.Printf
 var exit = os.Exit
 
-var rAll, _ = regexp.Compile("{\\S+}")
+var rAll, _ = regexp.Compile("{[0-9]+\\|\\S+}|{\\d+}")
 var rDef, _ = regexp.Compile("{[0-9]+\\|.*}")
 var rReg, _ = regexp.Compile("{[0-9]+}")
 var aReg, _ = regexp.Compile("{([0-9])+")
