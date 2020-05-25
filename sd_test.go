@@ -230,14 +230,14 @@ func TestParseCMD(t *testing.T) {
 			tOutput: "echo test test test from sd",
 		},
 		{
-                        tName: "Test parse CMD with multiple parameters which could seem to be the same",
-                        tInput: []T{
-                                "test -ojsonpath='{range .spec.template.spec.containers[0].env[?(@.value)]}{.name}{=}{.value}{n}' > $CLUSTER/env.sh",
-                                []string{},
-                        },
-                        tFunc:   parseCmd,
-                        tOutput: "test -ojsonpath='{range .spec.template.spec.containers[0].env[?(@.value)]}{.name}{=}{.value}{n}' > $CLUSTER/env.sh",
-                },
+			tName: "Test parse CMD with multiple parameters which could seem to be the same",
+			tInput: []T{
+				"test -ojsonpath='{range .spec.template.spec.containers[0].env[?(@.value)]}{.name}{=}{.value}{n}' > $CLUSTER/env.sh",
+				[]string{},
+			},
+			tFunc:   parseCmd,
+			tOutput: "test -ojsonpath='{range .spec.template.spec.containers[0].env[?(@.value)]}{.name}{=}{.value}{n}' > $CLUSTER/env.sh",
+		},
 		{
 			tName: "Test parse CMD with multiple same default arg",
 			tInput: []T{
@@ -544,6 +544,7 @@ func TestCommandsWithNoExistingFile(t *testing.T) {
 			tInput: []T{
 				"test",
 				[]string{"whet", "sij"},
+				false,
 			},
 			tFunc:   execute,
 			tOutput: 1,
@@ -602,6 +603,7 @@ func TestExecute(t *testing.T) {
 			tInput: []T{
 				"not_exists",
 				[]string{},
+				false,
 			},
 			tFunc:       execute,
 			tOutput:     1,
@@ -612,6 +614,7 @@ func TestExecute(t *testing.T) {
 			tInput: []T{
 				"hello",
 				[]string{},
+				false,
 			},
 			tFunc:   execute,
 			tOutput: 0,

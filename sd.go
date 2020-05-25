@@ -298,7 +298,7 @@ func readPrivateKeyFile(file string) []byte {
 	return content
 }
 
-func execute(key string, args []string) int {
+func execute(key string, args []string, debug bool) int {
 	if !fileExists() {
 		return 1
 	}
@@ -309,6 +309,9 @@ func execute(key string, args []string) int {
 		return 1
 	}
 	val = parseCmd(val, args)
+	if debug {
+		print("Executed CMD: %s\n", val)
+	}
 	return execCmd(val)
 }
 
@@ -458,7 +461,11 @@ func sd(user *user.User) int {
 		printMainHelp()
 		return 0
 	default:
-		exitCode = execute(os.Args[1], os.Args[2:])
+		if os.Args[1] == "-d" {
+			exitCode = execute(os.Args[2], os.Args[3:], true)
+		} else {
+			exitCode = execute(os.Args[1], os.Args[2:], false)
+		}
 	}
 
 	if saveCommand.Parsed() {
